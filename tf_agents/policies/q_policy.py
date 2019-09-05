@@ -70,6 +70,7 @@ class QPolicy(tf_policy.Base):
           'action_spec can only contain a single BoundedTensorSpec.')
     # We need to maintain the flat action spec for dtype, shape and range.
     self._flat_action_spec = flat_action_spec[0]
+    q_network.create_variables()
     self._q_network = q_network
     super(QPolicy, self).__init__(
         time_step_spec,
@@ -112,6 +113,7 @@ class QPolicy(tf_policy.Base):
       if self._flat_action_spec.shape.ndims == 1:
         mask = tf.expand_dims(mask, -2)
 
+      # Overwrite the logits for invalid actions to -inf.
       neg_inf = tf.constant(-np.inf, dtype=logits.dtype)
       logits = tf.compat.v2.where(tf.cast(mask, tf.bool), logits, neg_inf)
 

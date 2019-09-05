@@ -588,7 +588,7 @@ class TrainEval(object):
       logging.info('step = %d, loss = %f', global_step_val, total_loss.loss)
       logging.info('%s', 'action_time = {}'.format(self._action_timer.value()))
       logging.info('%s', 'step_time = {}'.format(self._step_timer.value()))
-      logging.info('%s', 'oberver_time = {}'.format(
+      logging.info('%s', 'observer_time = {}'.format(
           self._observer_timer.value()))
       steps_per_sec = ((global_step_val - self._timed_at_step) /
                        (self._collect_timer.value()
@@ -628,8 +628,6 @@ def get_run_args():
 
 def main(_):
   logging.set_verbosity(logging.INFO)
-  if common.has_eager_been_enabled():
-    return 0
   tf.enable_resource_variables()
   TrainEval(FLAGS.root_dir, suite_atari.game(name=FLAGS.game_name),
             **get_run_args()).run()

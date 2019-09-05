@@ -170,6 +170,11 @@ class TFUniformReplayBuffer(replay_buffer.ReplayBuffer):
 
   # Methods defined in ReplayBuffer base class
 
+  def _num_frames(self):
+    num_items_single_batch_segment = self._get_last_id() + 1
+    total_frames = num_items_single_batch_segment * self._batch_size
+    return tf.minimum(total_frames, self._capacity)
+
   def _add_batch(self, items):
     """Adds a batch of items to the replay buffer.
 
@@ -311,9 +316,13 @@ class TFUniformReplayBuffer(replay_buffer.ReplayBuffer):
     def get_next(_):
       return self.get_next(sample_batch_size, num_steps, time_stacked=True)
 
-    return tf.data.experimental.Counter().map(
-        get_next,
-        num_parallel_calls=num_parallel_calls)
+    dataset = tf.data.experimental.Counter().map(
+        get_next, num_parallel_calls=num_parallel_calls)
+    options = tf.data.Options()
+    if hasattr(options, 'experimental_allow_stateful'):
+      options.experimental_allow_stateful = True
+      dataset = dataset.with_options(options)
+    return dataset
 
   def _single_deterministic_pass_dataset(self,
                                          sample_batch_size=None,

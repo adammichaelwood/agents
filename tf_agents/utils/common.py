@@ -21,7 +21,9 @@ from __future__ import print_function
 
 import functools
 import os
+
 from absl import logging
+import distutils.version
 
 import tensorflow as tf
 
@@ -42,6 +44,17 @@ For unit tests, subclass `tf_agents.utils.test_utils.TestCase`.
 
 def resource_variables_enabled():
   return tf.compat.v1.resource_variables_enabled()
+
+
+_IN_LEGACY_TF1 = (
+    tf.__git_version__ != 'unknown'
+    and tf.__version__ != '1.15.0'
+    and (distutils.version.LooseVersion(tf.__version__) <=
+         distutils.version.LooseVersion('1.15.0.dev20190821')))
+
+
+def in_legacy_tf1():
+  return _IN_LEGACY_TF1
 
 
 def function(*args, **kwargs):
@@ -1057,7 +1070,9 @@ def check_no_shared_variables(network_1, network_2):
     network_2: A network.Network.
 
   Raises:
-    ValueError if there are any common trainable variables.
+    ValueError: if there are any common trainable variables.
+    ValueError: if one of the networks has not yet been built
+      (e.g. user must call `create_variables`).
   """
   variables_1 = {id(v): v for v in network_1.trainable_variables}
   variables_2 = {id(v): v for v in network_2.trainable_variables}
@@ -1071,7 +1086,10 @@ def check_no_shared_variables(network_1, network_2):
         'you want explicitly share weights with the target network, or '
         'if your input network shares weights with others, please '
         'provide a target network which explicitly, selectively, shares '
-        'layers/weights with the input network.  Shared variables found: '
+        'layers/weights with the input network.  If you are not intending to '
+        'share weights make sure all the weights are created inside the Network'
+        ' since a copy will be created by creating a new Network with the same '
+        'args but a new name. Shared variables found: '
         '\'{}\'.'.format(network_1.name, network_2.name, shared_variables))
 
 
@@ -1083,8 +1101,10 @@ def check_matching_networks(network_1, network_2):
     network_2: A network.Network.
 
   Raises:
-    ValueError if the networks differ in input_spec, variables (number, dtype or
-      shape).
+    ValueError: if the networks differ in input_spec, variables (number, dtype,
+      or shape).
+    ValueError: if either of the networks has not been built yet
+      (e.g. user must call `create_variables`).
   """
   if network_1.input_tensor_spec != network_2.input_tensor_spec:
     raise ValueError('Input tensor specs of network and target network '
@@ -1105,6 +1125,7 @@ def maybe_copy_target_network_with_checks(network, target_network=None,
                                           name='TargetNetwork'):
   if target_network is None:
     target_network = network.copy(name=name)
+    target_network.create_variables()
     # Copy may have been shallow, and variable may inadvertently be shared
     # between the target and original network.
     check_no_shared_variables(network, target_network)
